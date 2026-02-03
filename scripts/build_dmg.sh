@@ -45,7 +45,7 @@ if [[ -f "${BG_DIR}/background.svg.png" ]]; then
   mv "${BG_DIR}/background.svg.png" "${BG_PNG}"
 fi
 
-hdiutil create -size 200m -fs HFS+ -volname "${PROJECT_NAME}" -format UDRW "${RW_DMG}" >/dev/null
+hdiutil create -size 200m -fs HFS+ -volname "${PROJECT_NAME}" -type UDRW "${RW_DMG}" >/dev/null
 hdiutil attach "${RW_DMG}" -mountpoint "${MOUNT_DIR}" -nobrowse >/dev/null
 
 ditto "${APP_PATH}" "${MOUNT_DIR}/${PROJECT_NAME}.app"
