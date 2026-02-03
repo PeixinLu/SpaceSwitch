@@ -31,12 +31,20 @@ final class HoverDetector {
 struct NotchSwitchView: View {
     let onLeft: () -> Void
     let onRight: () -> Void
+    let onMission: () -> Void
 
     var body: some View {
         ZStack {
             HStack(spacing: 18) {
                 Button(action: onLeft) {
                     Image(systemName: "arrow.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onMission) {
+                    Image(systemName: "rectangle.3.group")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                 }
@@ -75,19 +83,22 @@ final class NotchHoverCoordinator {
 
     private let onLeft: () -> Void
     private let onRight: () -> Void
+    private let onMission: () -> Void
 
     init(
         triggerWidthRatio: CGFloat,
         showDelay: TimeInterval,
         hideDelay: TimeInterval,
         onLeft: @escaping () -> Void,
-        onRight: @escaping () -> Void
+        onRight: @escaping () -> Void,
+        onMission: @escaping () -> Void
     ) {
         self.triggerWidthRatio = triggerWidthRatio
         self.showDelay = max(0, showDelay)
         self.hideDelay = max(0, hideDelay)
         self.onLeft = onLeft
         self.onRight = onRight
+        self.onMission = onMission
         self.controller = NotchHoverController(
             configuration: .init(
                 minWidth: 260,
@@ -119,6 +130,12 @@ final class NotchHoverCoordinator {
     func updateDelays(show: TimeInterval, hide: TimeInterval) {
         showDelay = max(0, show)
         hideDelay = max(0, hide)
+    }
+
+    func hideImmediately() {
+        showWorkItem?.cancel()
+        hideWorkItem?.cancel()
+        controller.hide()
     }
 
     private func scheduleShow(on screen: NSScreen) {
@@ -153,7 +170,7 @@ final class NotchHoverCoordinator {
     }
 
     private func show(on screen: NSScreen) {
-        let contentView = NotchSwitchView(onLeft: onLeft, onRight: onRight)
+        let contentView = NotchSwitchView(onLeft: onLeft, onRight: onRight, onMission: onMission)
         controller.show(
             on: screen,
             leadingView: EmptyView(),

@@ -71,17 +71,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var statusItemOne: NSStatusItem!
     var statusItemTwo: NSStatusItem!
+    var statusItemThree: NSStatusItem!
     var notchCoordinator: NotchHoverCoordinator?
     var hoverDetector: HoverDetector?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         UserDefaults.standard.register(defaults: [
-            DefaultsKey.showMenuBarButtons: true,
-            DefaultsKey.hoverShowDelay: 0.18,
-            DefaultsKey.hoverHideDelay: 0.28
+            DefaultsKey.showMenuBarButtons: false,
+            DefaultsKey.hoverShowDelay: 0,
+            DefaultsKey.hoverHideDelay: 0.08
         ])
 
         setupStatusItemTwo()
+        setupStatusItemThree()
         setupStatusItemOne()
         setupNotchTrigger()
 
@@ -125,6 +127,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItemTwo.view = customView
     }
 
+    func setupStatusItemThree() {
+        statusItemThree = statusBar.statusItem(withLength: NSStatusItem.variableLength)
+        let quitMenu = setupQuitMenu()
+        let image = NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "Show Mission Control")
+        let customView = CustomButtonView(
+            target: self,
+            action: #selector(showMissionControl),
+            image: image,
+            menu: quitMenu
+        )
+        statusItemThree.view = customView
+    }
+
     func setupQuitMenu() -> NSMenu {
         let menu = NSMenu()
         let settingsItem = NSMenuItem(title: "设置…", action: #selector(openSettings), keyEquivalent: ",")
@@ -147,6 +162,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onRight: { [weak self] in
                 self?.switchToDesktopRight()
+            },
+            onMission: { [weak self] in
+                self?.showMissionControl()
             }
         )
         notchCoordinator = coordinator
@@ -176,9 +194,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setMenuBarButtonsVisible(_ visible: Bool) {
         if visible {
             if statusItemTwo == nil { setupStatusItemTwo() }
+            if statusItemThree == nil { setupStatusItemThree() }
             if statusItemOne == nil { setupStatusItemOne() }
             statusItemOne?.isVisible = true
             statusItemTwo?.isVisible = true
+            statusItemThree?.isVisible = true
         } else {
             if let item = statusItemOne {
                 statusBar.removeStatusItem(item)
@@ -187,6 +207,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if let item = statusItemTwo {
                 statusBar.removeStatusItem(item)
                 statusItemTwo = nil
+            }
+            if let item = statusItemThree {
+                statusBar.removeStatusItem(item)
+                statusItemThree = nil
             }
         }
     }
@@ -199,6 +223,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func switchToDesktopRight() {
         print("尝试执行脚本：切换到右侧桌面 (Control + Right Arrow)")
         executeScript(keyCode: 124, modifier: "control")
+    }
+
+    @objc func showMissionControl() {
+        print("尝试执行脚本：显示 Mission Control (Control + Up Arrow)")
+        executeScript(keyCode: 126, modifier: "control")
+        notchCoordinator?.hideImmediately()
     }
 
     func checkAccessibilityPermission() -> Bool {
