@@ -88,6 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupNotchTrigger()
 
         applySettings()
+        notchCoordinator?.showOnce()
         if !UserDefaults.standard.bool(forKey: DefaultsKey.showMenuBarButtons) {
             SettingsWindowController.shared.show()
         }

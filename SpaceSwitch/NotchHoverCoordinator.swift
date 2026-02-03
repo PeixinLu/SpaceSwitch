@@ -138,6 +138,18 @@ final class NotchHoverCoordinator {
         controller.hide()
     }
 
+    func showOnce(duration: TimeInterval = 1.2, on screen: NSScreen? = NSScreen.main) {
+        guard let screen else { return }
+        hideWorkItem?.cancel()
+        showWorkItem?.cancel()
+        show(on: screen)
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.controller.hide()
+        }
+        hideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
+    }
+
     private func scheduleShow(on screen: NSScreen) {
         hideWorkItem?.cancel()
         showWorkItem?.cancel()
