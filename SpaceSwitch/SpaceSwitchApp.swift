@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct menu_bar_switcherApp: App {
+struct SpaceSwitchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
