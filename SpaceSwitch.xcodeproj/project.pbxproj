@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		968918A42F31F550000826C8 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = 968918A32F31F550000826C8 /* LaunchAtLogin */; };
 		A75DFBA615DF496DAA2E6999 /* NotchNotification in Frameworks */ = {isa = PBXBuildFile; productRef = 20E67EBD86FD415F90ABA219 /* NotchNotification */; };
 /* End PBXBuildFile section */
 
@@ -27,6 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				968918A42F31F550000826C8 /* LaunchAtLogin in Frameworks */,
 				A75DFBA615DF496DAA2E6999 /* NotchNotification in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -71,6 +73,7 @@
 			name = SpaceSwitch;
 			packageProductDependencies = (
 				20E67EBD86FD415F90ABA219 /* NotchNotification */,
+				968918A32F31F550000826C8 /* LaunchAtLogin */,
 			);
 			productName = SpaceSwitch;
 			productReference = ACDAAF042EDD7E5C00BC22DB /* SpaceSwitch.app */;
@@ -102,6 +105,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A857E10957774F38872E9A18 /* XCLocalSwiftPackageReference "Packages/NotchNotification" */,
+				968918A22F31F550000826C8 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = ACDAAF052EDD7E5C00BC22DB /* Products */;
@@ -346,11 +350,27 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		968918A22F31F550000826C8 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin-Modern";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		20E67EBD86FD415F90ABA219 /* NotchNotification */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A857E10957774F38872E9A18 /* XCLocalSwiftPackageReference "Packages/NotchNotification" */;
 			productName = NotchNotification;
+		};
+		968918A32F31F550000826C8 /* LaunchAtLogin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 968918A22F31F550000826C8 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */;
+			productName = LaunchAtLogin;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
