@@ -23,7 +23,7 @@ jobs:
           node-version: 20
 
       - name: Install create-dmg
-        run: npm install -g create-dmg
+        run: npm install -g create-dmg@1.2.3
 
       - name: Build DMG
         run: ./scripts/build_dmg.sh
