@@ -3,3 +3,5 @@
 menu-bar-switcher.xcodeproj/xcuserdata/
 menu-bar-switcher.xcodeproj/project.xcworkspace/xcuserdata/
 menu-bar-switcher-0.1.1.zip
+build/
+*.dmg
