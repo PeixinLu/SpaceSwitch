@@ -1,0 +1,186 @@
+Index: Packages/NotchNotification/Sources/NotchNotification/NotchHoverController.swift
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Packages/NotchNotification/Sources/NotchNotification/NotchHoverController.swift b/Packages/NotchNotification/Sources/NotchNotification/NotchHoverController.swift
+new file mode 100644
+--- /dev/null	(date 1770102643196)
++++ b/Packages/NotchNotification/Sources/NotchNotification/NotchHoverController.swift	(date 1770102643196)
+@@ -0,0 +1,155 @@
++import Cocoa
++import SwiftUI
++
++public struct NotchHoverConfiguration: Sendable {
++    public var minWidth: CGFloat
++    public var minWidthExtra: CGFloat
++    public var heightMultiplier: CGFloat
++    public var animated: Bool
++
++    public init(
++        minWidth: CGFloat = 220,
++        minWidthExtra: CGFloat = 40,
++        heightMultiplier: CGFloat = 2,
++        animated: Bool = true
++    ) {
++        self.minWidth = minWidth
++        self.minWidthExtra = minWidthExtra
++        self.heightMultiplier = heightMultiplier
++        self.animated = animated
++    }
++}
++
++public final class NotchHoverController {
++    private let configuration: NotchHoverConfiguration
++    private var viewModel: NotchViewModel?
++    private var windowController: NotchWindowController?
++    private var screen: NSScreen?
++
++    public init(configuration: NotchHoverConfiguration = .init()) {
++        self.configuration = configuration
++    }
++
++    public var isVisible: Bool {
++        viewModel?.status == .opened
++    }
++
++    public func show(
++        on screen: NSScreen,
++        leadingView: some View = EmptyView(),
++        trailingView: some View = EmptyView(),
++        bodyView: some View
++    ) {
++        if let currentScreen = self.screen, currentScreen == screen, isVisible {
++            return
++        }
++
++        destroyCurrent()
++        self.screen = screen
++
++        let headerHeight = screen.headerHeight
++        let menuBarHeight = NSStatusBar.system.thickness
++        let targetHeight = max(menuBarHeight * configuration.heightMultiplier, headerHeight)
++
++        let notchWidth = screen.notchSize.width
++        let widenedNotchWidth = notchWidth * 1.25
++        let minWidth = max(configuration.minWidth, notchWidth + configuration.minWidthExtra, widenedNotchWidth)
++        let bodyMinWidth = max(minWidth - 32, 0)
++        let bodyMinHeight = max(targetHeight - headerHeight - 16, 0)
++
++        let wrappedBody = NotchHoverBodyView(
++            minWidth: bodyMinWidth,
++            minHeight: bodyMinHeight,
++            content: bodyView
++        )
++
++        let viewModel = NotchViewModel(
++            screen: screen,
++            headerLeadingView: AnyView(leadingView),
++            headerTrailingView: AnyView(trailingView),
++            bodyView: AnyView(wrappedBody),
++            animated: configuration.animated
++        )
++
++        let view = NotchView(vm: viewModel)
++        let viewController = NotchViewController(view)
++        let windowController = NotchWindowController(screen: screen)
++        windowController.contentViewController = viewController
++
++        let shadowInset: CGFloat = 50
++        let topRect = CGRect(
++            x: screen.frame.origin.x,
++            y: screen.frame.origin.y + screen.frame.height - viewModel.notchOpenedSize.height - shadowInset,
++            width: screen.frame.width,
++            height: viewModel.notchOpenedSize.height + shadowInset
++        )
++        windowController.window?.setFrameOrigin(topRect.origin)
++        windowController.window?.setContentSize(topRect.size)
++        windowController.window?.orderFront(nil)
++
++        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
++            viewModel.open()
++        }
++
++        viewModel.referencedWindow = windowController
++
++        self.viewModel = viewModel
++        self.windowController = windowController
++    }
++
++    public func hide() {
++        guard let viewModel else { return }
++        viewModel.close()
++        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak viewModel] in
++            viewModel?.destroyMemory()
++        }
++        self.viewModel = nil
++        self.windowController = nil
++        self.screen = nil
++    }
++
++    public func updateScreenIfNeeded(_ screen: NSScreen) {
++        guard let currentScreen = self.screen else { return }
++        if currentScreen != screen {
++            hide()
++        }
++    }
++
++    public func contains(_ point: NSPoint) -> Bool {
++        guard let frame = notchFrame else { return false }
++        return frame.contains(point)
++    }
++
++    public var notchFrame: NSRect? {
++        guard let screen, let viewModel else { return nil }
++        let notchWidth = viewModel.notchOpenedSize.width + viewModel.cornerRadius * 2
++        let notchHeight = viewModel.notchOpenedSize.height
++        let originX = screen.frame.midX - (notchWidth / 2)
++        let originY = screen.frame.maxY - notchHeight
++        return NSRect(x: originX, y: originY, width: notchWidth, height: notchHeight)
++    }
++
++    private func destroyCurrent() {
++        viewModel?.destroyMemory()
++        viewModel = nil
++        windowController = nil
++        screen = nil
++    }
++}
++
++private struct NotchHoverBodyView<Content: View>: View {
++    let minWidth: CGFloat
++    let minHeight: CGFloat
++    let content: Content
++
++    init(minWidth: CGFloat, minHeight: CGFloat, content: Content) {
++        self.minWidth = minWidth
++        self.minHeight = minHeight
++        self.content = content
++    }
++
++    var body: some View {
++        content
++            .frame(minWidth: minWidth, minHeight: minHeight, alignment: .center)
++    }
++}
+Index: Packages/NotchNotification/Sources/NotchNotification/NotchView.swift
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>//\n//  NotchView.swift\n//  NotchDrop\n//\n//  Created by 秋星桥 on 2024/7/7.\n//\n\nimport SwiftUI\n\nstruct NotchView: View {\n    @StateObject var vm: NotchViewModel\n\n    var notchSize: CGSize {\n        switch vm.status {\n        case .closed:\n            .zero\n        case .opened:\n            vm.notchOpenedSize\n        }\n    }\n\n    var body: some View {\n        ZStack(alignment: .top) {\n            notch\n                .zIndex(0)\n                .disabled(true)\n            Group {\n                if vm.status == .opened {\n                    VStack(spacing: 0) {\n                        vm.headerView\n                        vm.bodyView\n                            .frame(maxWidth: .infinity, maxHeight: .infinity)\n                    }\n                    .frame(maxWidth: vm.notchOpenedSize.width, maxHeight: vm.notchOpenedSize.height)\n                    .zIndex(1)\n                }\n            }\n            .transition(\n                .scale.combined(\n                    with: .opacity\n                ).combined(\n                    with: .offset(y: -vm.notchOpenedSize.height / 2)\n                ).animation(vm.animation)\n            )\n        }\n        .animation(vm.animation, value: vm.status)\n        .preferredColorScheme(.dark)\n        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)\n    }\n\n    var notch: some View {\n        Rectangle()\n            .foregroundStyle(.black)\n            .clipShape(\n                NotchRectangle(\n                    topCornerRadius: vm.cornerRadius * 0.6,\n                    bottomCornerRadius: vm.cornerRadius\n                )\n            )\n            .frame(\n                width: notchSize.width + vm.cornerRadius * 2,\n                height: notchSize.height\n            )\n            .shadow(\n                color: .black.opacity(([.opened].contains(vm.status)) ? 1 : 0),\n                radius: 16\n            )\n    }\n\n    struct NotchRectangle: Shape {\n        var topCornerRadius: CGFloat\n        var bottomCornerRadius: CGFloat\n\n        func path(in rect: CGRect) -> Path {\n            var path = Path()\n\n            // Define the points for the rounded rectangle\n            let tl = CGPoint(x: rect.minX, y: rect.minY)\n            let tr = CGPoint(x: rect.maxX, y: rect.minY)\n            let bl = CGPoint(x: rect.minX, y: rect.maxY)\n            let br = CGPoint(x: rect.maxX, y: rect.maxY)\n\n            let bottomFactor: CGFloat = 0.36\n            let topFactor: CGFloat = 0.32\n\n            let brCtrlPoint1 = CGPoint(x: br.x - topCornerRadius, y: br.y - bottomCornerRadius * bottomFactor)\n            let brCtrlPoint2 = CGPoint(x: br.x - topCornerRadius - bottomCornerRadius * bottomFactor, y: br.y)\n\n            let blCtrlPoint1 = CGPoint(x: bl.x + topCornerRadius + bottomCornerRadius * bottomFactor, y: bl.y)\n            let blCtrlPoint2 = CGPoint(x: bl.x + topCornerRadius, y: bl.y - bottomCornerRadius * bottomFactor)\n\n            let trCtrlPoint1 = CGPoint(x: tr.x - topCornerRadius + topCornerRadius * topFactor, y: tr.y)\n            let trCtrlPoint2 = CGPoint(x: tr.x - topCornerRadius, y: tr.y + topCornerRadius * topFactor)\n\n            let tlCtrlPoint1 = CGPoint(x: tl.x + topCornerRadius, y: tr.y + topCornerRadius * topFactor)\n            let tlCtrlPoint2 = CGPoint(x: tl.x + topCornerRadius - topCornerRadius * topFactor, y: tr.y)\n\n            path.move(to: tl)\n            path.addLine(to: tr) // Top edge\n\n            path.addCurve(\n                to: CGPoint(x: tr.x - topCornerRadius, y: tr.y + topCornerRadius),\n                control1: trCtrlPoint1,\n                control2: trCtrlPoint2\n            )\n\n            path.addLine(to: CGPoint(x: br.x - topCornerRadius, y: br.y - bottomCornerRadius))\n\n            path.addCurve(\n                to: CGPoint(x: br.x - topCornerRadius - bottomCornerRadius, y: br.y),\n                control1: brCtrlPoint1,\n                control2: brCtrlPoint2\n            )\n\n            path.addLine(to: CGPoint(x: bl.x + topCornerRadius + bottomCornerRadius, y: bl.y))\n\n            path.addCurve(\n                to: CGPoint(x: bl.x + topCornerRadius, y: bl.y - bottomCornerRadius),\n                control1: blCtrlPoint1,\n                control2: blCtrlPoint2\n            )\n\n            path.addLine(to: CGPoint(x: tl.x + topCornerRadius, y: tl.y + topCornerRadius))\n\n            path.addCurve(to: tl, control1: tlCtrlPoint1, control2: tlCtrlPoint2)\n\n            path.closeSubpath()\n\n            return path\n        }\n    }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Packages/NotchNotification/Sources/NotchNotification/NotchView.swift b/Packages/NotchNotification/Sources/NotchNotification/NotchView.swift
+--- a/Packages/NotchNotification/Sources/NotchNotification/NotchView.swift	(revision e4d255d789eba108184b0aa1f6361a4adfb302f6)
++++ b/Packages/NotchNotification/Sources/NotchNotification/NotchView.swift	(date 1770102612256)
+@@ -61,10 +61,6 @@
+                 width: notchSize.width + vm.cornerRadius * 2,
+                 height: notchSize.height
+             )
+-            .shadow(
+-                color: .black.opacity(([.opened].contains(vm.status)) ? 1 : 0),
+-                radius: 16
+-            )
+     }
+ 
+     struct NotchRectangle: Shape {

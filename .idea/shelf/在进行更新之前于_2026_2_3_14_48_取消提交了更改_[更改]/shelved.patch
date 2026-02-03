@@ -1,0 +1,426 @@
+Index: menu-bar-switcher/.idea/modules.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/.idea/modules.xml b/menu-bar-switcher/.idea/modules.xml
+new file mode 100644
+--- /dev/null	(date 1764585231722)
++++ b/menu-bar-switcher/.idea/modules.xml	(date 1764585231722)
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="ProjectModuleManager">
++    <modules>
++      <module fileurl="file://$PROJECT_DIR$/.idea/menu-bar-switcher.iml" filepath="$PROJECT_DIR$/.idea/menu-bar-switcher.iml" />
++    </modules>
++  </component>
++</project>
+\ No newline at end of file
+Index: menu-bar-switcher/.idea/.gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/.idea/.gitignore b/menu-bar-switcher/.idea/.gitignore
+new file mode 100644
+--- /dev/null	(date 1764584941133)
++++ b/menu-bar-switcher/.idea/.gitignore	(date 1764584941133)
+@@ -0,0 +1,8 @@
++# 默认忽略的文件
++/shelf/
++/workspace.xml
++# 基于编辑器的 HTTP 客户端请求
++/httpRequests/
++# Datasource local storage ignored files
++/dataSources/
++/dataSources.local.xml
+Index: menu-bar-switcher/NotchHoverCoordinator.swift
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/NotchHoverCoordinator.swift b/menu-bar-switcher/NotchHoverCoordinator.swift
+new file mode 100644
+--- /dev/null	(date 1770027631325)
++++ b/menu-bar-switcher/NotchHoverCoordinator.swift	(date 1770027631325)
+@@ -0,0 +1,158 @@
++import Cocoa
++import SwiftUI
++import NotchNotification
++
++final class HoverDetector {
++    private var globalMonitor: Any?
++    private var localMonitor: Any?
++    private let handler: (NSPoint) -> Void
++
++    init(handler: @escaping (NSPoint) -> Void) {
++        self.handler = handler
++        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { _ in
++            handler(NSEvent.mouseLocation)
++        }
++        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { event in
++            handler(NSEvent.mouseLocation)
++            return event
++        }
++    }
++
++    deinit {
++        if let globalMonitor {
++            NSEvent.removeMonitor(globalMonitor)
++        }
++        if let localMonitor {
++            NSEvent.removeMonitor(localMonitor)
++        }
++    }
++}
++
++struct NotchSwitchView: View {
++    let onLeft: () -> Void
++    let onRight: () -> Void
++
++    var body: some View {
++        HStack(spacing: 18) {
++            Button(action: onLeft) {
++                Image(systemName: "arrow.left")
++                    .font(.system(size: 16, weight: .semibold))
++                    .foregroundColor(.white)
++            }
++            .buttonStyle(.plain)
++
++            Button(action: onRight) {
++                Image(systemName: "arrow.right")
++                    .font(.system(size: 16, weight: .semibold))
++                    .foregroundColor(.white)
++            }
++            .buttonStyle(.plain)
++        }
++        .padding(.vertical, 8)
++    }
++}
++
++final class NotchHoverCoordinator {
++    private let controller: NotchHoverController
++    private let triggerWidthRatio: CGFloat
++    private var showDelay: TimeInterval
++    private var hideDelay: TimeInterval
++    private var showWorkItem: DispatchWorkItem?
++    private var hideWorkItem: DispatchWorkItem?
++
++    private let onLeft: () -> Void
++    private let onRight: () -> Void
++
++    init(
++        triggerWidthRatio: CGFloat,
++        showDelay: TimeInterval,
++        hideDelay: TimeInterval,
++        onLeft: @escaping () -> Void,
++        onRight: @escaping () -> Void
++    ) {
++        self.triggerWidthRatio = triggerWidthRatio
++        self.showDelay = max(0, showDelay)
++        self.hideDelay = max(0, hideDelay)
++        self.onLeft = onLeft
++        self.onRight = onRight
++        self.controller = NotchHoverController(
++            configuration: .init(
++                minWidth: 260,
++                minWidthExtra: 80,
++                heightMultiplier: 2,
++                animated: true
++            )
++        )
++    }
++
++    func handleMouseMoved(_ point: NSPoint) {
++        guard let screen = screenContaining(point) else { return }
++        let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
++        let menuBarYMin = screen.frame.maxY - menuBarHeight
++
++        let inMenuBar = point.y >= menuBarYMin && point.y <= screen.frame.maxY
++        let centerHalfWidth = (screen.frame.width * triggerWidthRatio) / 2
++        let inCenter = abs(point.x - screen.frame.midX) <= centerHalfWidth
++        let inTrigger = inMenuBar && inCenter
++        let inNotch = controller.contains(point)
++
++        if inTrigger || inNotch {
++            scheduleShow(on: screen)
++        } else {
++            scheduleHide()
++        }
++    }
++
++    func updateDelays(show: TimeInterval, hide: TimeInterval) {
++        showDelay = max(0, show)
++        hideDelay = max(0, hide)
++    }
++
++    private func scheduleShow(on screen: NSScreen) {
++        hideWorkItem?.cancel()
++        showWorkItem?.cancel()
++
++        if controller.isVisible {
++            controller.updateScreenIfNeeded(screen)
++            return
++        }
++
++        let workItem = DispatchWorkItem { [weak self] in
++            self?.show(on: screen)
++        }
++        showWorkItem = workItem
++        DispatchQueue.main.asyncAfter(deadline: .now() + showDelay, execute: workItem)
++    }
++
++    private func scheduleHide() {
++        showWorkItem?.cancel()
++        hideWorkItem?.cancel()
++
++        if !controller.isVisible {
++            return
++        }
++
++        let workItem = DispatchWorkItem { [weak self] in
++            self?.controller.hide()
++        }
++        hideWorkItem = workItem
++        DispatchQueue.main.asyncAfter(deadline: .now() + hideDelay, execute: workItem)
++    }
++
++    private func show(on screen: NSScreen) {
++        let contentView = NotchSwitchView(onLeft: onLeft, onRight: onRight)
++        controller.show(
++            on: screen,
++            leadingView: EmptyView(),
++            trailingView: EmptyView(),
++            bodyView: contentView
++        )
++    }
++
++    private func screenContaining(_ point: NSPoint) -> NSScreen? {
++        for screen in NSScreen.screens where screen.frame.contains(point) {
++            return screen
++        }
++        return NSScreen.main
++    }
++}
+Index: menu-bar-switcher/.idea/menu-bar-switcher.iml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/.idea/menu-bar-switcher.iml b/menu-bar-switcher/.idea/menu-bar-switcher.iml
+new file mode 100644
+--- /dev/null	(date 1764585231721)
++++ b/menu-bar-switcher/.idea/menu-bar-switcher.iml	(date 1764585231721)
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<module type="WEB_MODULE" version="4">
++  <component name="NewModuleRootManager">
++    <content url="file://$MODULE_DIR$">
++      <excludeFolder url="file://$MODULE_DIR$/.tmp" />
++      <excludeFolder url="file://$MODULE_DIR$/temp" />
++      <excludeFolder url="file://$MODULE_DIR$/tmp" />
++    </content>
++    <orderEntry type="inheritedJdk" />
++    <orderEntry type="sourceFolder" forTests="false" />
++  </component>
++</module>
+\ No newline at end of file
+Index: menu-bar-switcher/NotificationNames.swift
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/NotificationNames.swift b/menu-bar-switcher/NotificationNames.swift
+new file mode 100644
+--- /dev/null	(date 1770028058413)
++++ b/menu-bar-switcher/NotificationNames.swift	(date 1770028058413)
+@@ -0,0 +1,5 @@
++import Foundation
++
++extension Notification.Name {
++    static let settingsDidChange = Notification.Name("settingsDidChange")
++}
+Index: menu-bar-switcher/SettingsWindowController.swift
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/SettingsWindowController.swift b/menu-bar-switcher/SettingsWindowController.swift
+new file mode 100644
+--- /dev/null	(date 1770028064886)
++++ b/menu-bar-switcher/SettingsWindowController.swift	(date 1770028064886)
+@@ -0,0 +1,33 @@
++import Cocoa
++import SwiftUI
++
++final class SettingsWindowController: NSWindowController {
++    static let shared = SettingsWindowController()
++
++    private init() {
++        let view = SettingsView()
++        let hostingView = NSHostingView(rootView: view)
++        let window = NSWindow(
++            contentRect: NSRect(x: 0, y: 0, width: 360, height: 220),
++            styleMask: [.titled, .closable],
++            backing: .buffered,
++            defer: false
++        )
++        window.contentView = hostingView
++        window.title = "设置"
++        window.contentMinSize = NSSize(width: 320, height: 200)
++        window.center()
++        super.init(window: window)
++    }
++
++    @available(*, unavailable)
++    required init?(coder: NSCoder) {
++        fatalError("init(coder:) has not been implemented")
++    }
++
++    func show() {
++        guard let window else { return }
++        NSApp.activate(ignoringOtherApps: true)
++        window.makeKeyAndOrderFront(nil)
++    }
++}
+Index: menu-bar-switcher/.idea/vcs.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/.idea/vcs.xml b/menu-bar-switcher/.idea/vcs.xml
+new file mode 100644
+--- /dev/null	(date 1764585231726)
++++ b/menu-bar-switcher/.idea/vcs.xml	(date 1764585231726)
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="VcsDirectoryMappings">
++    <mapping directory="$PROJECT_DIR$/.." vcs="Git" />
++  </component>
++</project>
+\ No newline at end of file
+Index: menu-bar-switcher/SettingsView.swift
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher/SettingsView.swift b/menu-bar-switcher/SettingsView.swift
+new file mode 100644
+--- /dev/null	(date 1770084186775)
++++ b/menu-bar-switcher/SettingsView.swift	(date 1770084186775)
+@@ -0,0 +1,56 @@
++import SwiftUI
++import NotchNotification
++
++struct SettingsView: View {
++    @AppStorage("showMenuBarButtons") private var showMenuBarButtons = true
++    @AppStorage("hoverShowDelay") private var hoverShowDelay = 0.18
++    @AppStorage("hoverHideDelay") private var hoverHideDelay = 0.28
++
++    private let delayRange: ClosedRange<Double> = 0...1.5
++    private let step: Double = 0.05
++
++    var body: some View {
++        VStack(alignment: .leading, spacing: 16) {
++            Toggle("在菜单栏显示切换按钮", isOn: $showMenuBarButtons)
++
++            VStack(alignment: .leading, spacing: 8) {
++                Text("刘海触发延迟（秒）")
++                    .font(.headline)
++                delayRow(title: "展开延迟", value: $hoverShowDelay)
++                delayRow(title: "关闭延迟", value: $hoverHideDelay)
++            }
++        }
++        .padding(20)
++        .frame(width: 360, height: 200, alignment: .topLeading)
++        .onChange(of: showMenuBarButtons) { _ in
++            NotificationCenter.default.post(name: .settingsDidChange, object: nil)
++            if showMenuBarButtons == false {
++                NotchNotification.present(
++                    message: "菜单栏图标已隐藏，下次启动将自动打开设置"
++                )
++            }
++        }
++        .onChange(of: hoverShowDelay) { _ in
++            NotificationCenter.default.post(name: .settingsDidChange, object: nil)
++        }
++        .onChange(of: hoverHideDelay) { _ in
++            NotificationCenter.default.post(name: .settingsDidChange, object: nil)
++        }
++    }
++
++    @ViewBuilder
++    private func delayRow(title: String, value: Binding<Double>) -> some View {
++        HStack {
++            Text(title)
++            Spacer()
++            Stepper(value: value, in: delayRange, step: step) {
++                Text(String(format: "%.2f", value.wrappedValue))
++                    .monospacedDigit()
++            }
++        }
++    }
++}
++
++#Preview {
++    SettingsView()
++}
+Index: menu-bar-switcher.xcodeproj/xcuserdata/work.xcuserdatad/xcschemes/xcschememanagement.plist
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/menu-bar-switcher.xcodeproj/xcuserdata/work.xcuserdatad/xcschemes/xcschememanagement.plist b/menu-bar-switcher.xcodeproj/xcuserdata/work.xcuserdatad/xcschemes/xcschememanagement.plist
+new file mode 100644
+--- /dev/null	(date 1770101261048)
++++ b/menu-bar-switcher.xcodeproj/xcuserdata/work.xcuserdatad/xcschemes/xcschememanagement.plist	(date 1770101261048)
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++	<key>SchemeUserState</key>
++	<dict>
++		<key>menu-bar-switcher.xcscheme_^#shared#^_</key>
++		<dict>
++			<key>orderHint</key>
++			<integer>0</integer>
++		</dict>
++	</dict>
++</dict>
++</plist>
+Index: .idea/inspectionProfiles/Project_Default.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/inspectionProfiles/Project_Default.xml b/.idea/inspectionProfiles/Project_Default.xml
+new file mode 100644
+--- /dev/null	(date 1770024649398)
++++ b/.idea/inspectionProfiles/Project_Default.xml	(date 1770024649398)
+@@ -0,0 +1,22 @@
++<component name="InspectionProjectProfileManager">
++  <profile version="1.0">
++    <option name="myName" value="Project Default" />
++    <inspection_tool class="HtmlUnknownTag" enabled="false" level="WARNING" enabled_by_default="false">
++      <option name="myValues">
++        <value>
++          <list size="6">
++            <item index="0" class="java.lang.String" itemvalue="nobr" />
++            <item index="1" class="java.lang.String" itemvalue="noembed" />
++            <item index="2" class="java.lang.String" itemvalue="comment" />
++            <item index="3" class="java.lang.String" itemvalue="noscript" />
++            <item index="4" class="java.lang.String" itemvalue="embed" />
++            <item index="5" class="java.lang.String" itemvalue="script" />
++          </list>
++        </value>
++      </option>
++      <option name="myCustomValuesEnabled" value="true" />
++    </inspection_tool>
++    <inspection_tool class="VueMissingComponentImportInspection" enabled="false" level="WARNING" enabled_by_default="false" />
++    <inspection_tool class="VueUnrecognizedDirective" enabled="false" level="WARNING" enabled_by_default="false" />
++  </profile>
++</component>
+\ No newline at end of file
