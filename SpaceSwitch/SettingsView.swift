@@ -1,5 +1,6 @@
 import SwiftUI
 import NotchNotification
+import LaunchAtLogin
 
 struct SettingsView: View {
     @AppStorage("showMenuBarButtons") private var showMenuBarButtons = false
@@ -17,6 +18,7 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            LaunchAtLogin.Toggle("登录时自动打开")
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
