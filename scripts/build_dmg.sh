@@ -49,11 +49,13 @@ if [[ -f "${BG_PNG}" ]]; then
   CREATE_DMG_ARGS+=(--background "${BG_PNG}")
 fi
 
-if [[ -n "${CI:-}" ]]; then
-  CREATE_DMG_ARGS+=(--skip-jenkins)
+if create-dmg "${CREATE_DMG_ARGS[@]}" "${PROJECT_NAME}.dmg" "${CONTENT_DIR}"; then
+  echo "DMG decoration succeeded"
+  sleep 6
+else
+  echo "DMG decoration skipped (CI fallback)"
+  create-dmg "${CREATE_DMG_ARGS[@]}" --skip-jenkins "${PROJECT_NAME}.dmg" "${CONTENT_DIR}"
 fi
-
-create-dmg "${CREATE_DMG_ARGS[@]}" "${PROJECT_NAME}.dmg" "${CONTENT_DIR}"
 
 rm -rf "${STAGING_DIR}"
 echo "Created ${PROJECT_NAME}.dmg"
